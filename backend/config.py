@@ -66,6 +66,20 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, description="Server port")
     ws_max_size: int = Field(default=1048576, description="Max WebSocket message size")
 
+    # ── VAD (Voice Activity Detection) ────────────────────────
+    vad_threshold: float = Field(
+        default=0.015,
+        description="RMS volume threshold for speech detection (0.01 to 0.05)",
+    )
+    silence_timeout_ms: int = Field(
+        default=1200,
+        description="Ms of silence before auto-triggering response",
+    )
+    min_speech_duration_ms: int = Field(
+        default=300,
+        description="Minimum ms of speech to be considered a valid turn",
+    )
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = Field(default="INFO", description="Logging level")
 

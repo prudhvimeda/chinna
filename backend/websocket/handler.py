@@ -6,6 +6,8 @@ import asyncio
 import json
 import logging
 import base64
+import numpy as np
+import time
 from typing import Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -35,22 +37,80 @@ class WebSocketHandler:
         # Send initial status
         await self._send_event(websocket, Event.status(PipelineStatus.IDLE, session.session_id))
 
-        # Audio buffer for accumulating chunks
+        # Voice Activity Detection (VAD) state
         audio_buffer = bytearray()
-        is_recording = False
+        is_speech_active = False
+        last_speech_time = 0
+        silence_start_time = 0
+        
+        # Continuous mode flag (can be toggled by client)
+        auto_mode = False 
 
         try:
             while True:
-                # Receive message (can be text/JSON or binary audio)
+                # Receive message
                 message = await websocket.receive()
 
                 if "text" in message:
+                    # Update auto_mode if sent in text, or handle other text events
+                    data = json.loads(message["text"])
+                    if data.get("type") == "set_auto_mode":
+                        auto_mode = data.get("enabled", False)
+                        logger.info(f"Auto-Voice mode: {'ENABLED' if auto_mode else 'DISABLED'}")
+                        continue
+                        
                     await self._handle_text_message(
                         websocket, message["text"], session, audio_buffer
                     )
                 elif "bytes" in message:
-                    if is_recording or True:  # Always accept audio data
-                        audio_buffer.extend(message["bytes"])
+                    chunk = message["bytes"]
+                    audio_buffer.extend(chunk)
+                    
+                    if auto_mode and self.pipeline.status == PipelineStatus.IDLE:
+                        # ── Real-time VAD Logic ──────────────────────
+                        # Convert bytes to PCM16 numpy array to calculate volume
+                        audio_np = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
+                        rms = np.sqrt(np.mean(audio_np**2)) if len(audio_np) > 0 else 0
+                        
+                        current_time = time.time()
+                        
+                        if rms > self.pipeline.settings.vad_threshold:
+                            if not is_speech_active:
+                                logger.debug("👄 Speech detected...")
+                                is_speech_active = True
+                                await self._send_event(websocket, Event.status(PipelineStatus.LISTENING, session.session_id))
+                            
+                            last_speech_time = current_time
+                            silence_start_time = 0
+                        else:
+                            if is_speech_active:
+                                if silence_start_time == 0:
+                                    silence_start_time = current_time
+                                
+                                silence_duration = (current_time - silence_start_time) * 1000
+                                if silence_duration >= self.pipeline.settings.silence_timeout_ms:
+                                    # ── AUTO TRIGGER ─────────────────────
+                                    speech_duration = (silence_start_time - last_speech_time) * 1000
+                                    
+                                    if speech_duration >= self.pipeline.settings.min_speech_duration_ms:
+                                        logger.info(f"⏹️ Silence detected ({int(silence_duration)}ms). Triggering RJ...")
+                                        
+                                        audio_data = bytes(audio_buffer)
+                                        audio_buffer.clear()
+                                        is_speech_active = False
+                                        silence_start_time = 0
+                                        
+                                        # Process turn in background to not block WS loop
+                                        asyncio.create_task(self.pipeline.process_turn(
+                                            audio_data=audio_data,
+                                            session=session,
+                                            send_event=lambda event: self._send_event(websocket, event),
+                                        ))
+                                    else:
+                                        # Too short, probably a noise pop
+                                        is_speech_active = False
+                                        silence_start_time = 0
+                                        audio_buffer.clear()
 
         except WebSocketDisconnect:
             logger.info(f"🔌 Client disconnected (session: {session.session_id[:8]})")

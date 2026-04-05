@@ -16,6 +16,7 @@ interface UseWebSocketReturn {
   startListening: () => void;
   stopListening: () => void;
   interrupt: () => void;
+  setAutoMode: (enabled: boolean) => void;
   connect: () => void;
   disconnect: () => void;
 }
@@ -186,6 +187,13 @@ export function useWebSocket(): UseWebSocketReturn {
     setCurrentResponse('');
   }, [sendEvent]);
 
+  const setAutoMode = useCallback((enabled: boolean) => {
+    sendEvent({ 
+      type: EventType.SET_AUTO_MODE,
+      data: { enabled } as any
+    });
+  }, [sendEvent]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -205,6 +213,7 @@ export function useWebSocket(): UseWebSocketReturn {
     startListening,
     stopListening,
     interrupt,
+    setAutoMode,
     connect,
     disconnect,
   };

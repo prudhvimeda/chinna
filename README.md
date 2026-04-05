@@ -1,6 +1,8 @@
-# 🤖 Chinna — AI Voice Assistant
+# 🤖 RJ — AI Voice Assistant (Stark-Edition)
 
-A production-ready, fully open-source AI voice assistant that runs **100% offline**. No API keys. No cloud. Just you and Chinna.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-blue?style=for-the-badge&logo=vercel)](https://chinna.vercel.app/)
+
+A production-ready, charismatic AI voice assistant modeled after RDJ's Tony Stark. Fully open-source and capable of running **100% offline**.
 
 ```
 🎤 Audio → faster-whisper (ASR) → Ollama/Llama 3.2 (LLM) → Kokoro-82M (TTS) → 🔊 Audio

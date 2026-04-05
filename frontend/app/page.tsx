@@ -20,6 +20,7 @@ export default function Home() {
     startListening,
     stopListening,
     interrupt,
+    setAutoMode,
     connect,
     disconnect,
   } = useWebSocket();
@@ -32,6 +33,9 @@ export default function Home() {
   } = useMicrophone();
 
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [isAutoMode, setIsAutoMode] = useState(false);
+
+  const isConnected = connectionState === ConnectionState.CONNECTED;
 
   // Handle orb click — toggle recording
   const handleOrbClick = useCallback(async () => {
@@ -39,6 +43,8 @@ export default function Home() {
       interrupt();
       return;
     }
+
+    if (isAutoMode) return; // In auto mode, the orb is purely visual/interruptive
 
     if (isRecording) {
       stopListening();
@@ -57,6 +63,7 @@ export default function Home() {
     }
   }, [
     isRecording,
+    isAutoMode,
     connectionState,
     pipelineStatus,
     startRecording,
@@ -69,6 +76,28 @@ export default function Home() {
     getAnalyserNode,
   ]);
 
+  // Synchronize Auto Mode with backend
+  useEffect(() => {
+    setAutoMode(isAutoMode);
+    
+    // If turning on auto mode, start recording immediately
+    if (isAutoMode && isConnected && !isRecording) {
+      const initAutoRecord = async () => {
+        await startRecording((audioData) => {
+          sendAudio(audioData);
+        });
+        setAnalyserNode(getAnalyserNode());
+      };
+      initAutoRecord();
+    }
+    
+    // If turning off auto mode, stop recording
+    if (!isAutoMode && isRecording) {
+      stopRecording();
+      setAnalyserNode(null);
+    }
+  }, [isAutoMode, isConnected, setAutoMode, startRecording, sendAudio, getAnalyserNode, isRecording, stopRecording]);
+
   // Keyboard shortcut: Space to toggle recording
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -80,8 +109,6 @@ export default function Home() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleOrbClick]);
-
-  const isConnected = connectionState === ConnectionState.CONNECTED;
 
   // Auto-connect on mount for true hacker feel
   useEffect(() => {
@@ -127,6 +154,18 @@ export default function Home() {
         <div className="sub-status">
           <span style={{color: '#fff'}}>pipeline: </span>
           {pipelineStatus.toUpperCase()}
+        </div>
+        
+        <div className="toggle-container" style={{ marginTop: '16px' }}>
+          <label className="switch">
+            <input 
+                type="checkbox" 
+                checked={isAutoMode} 
+                onChange={() => setIsAutoMode(!isAutoMode)} 
+            />
+            <span className="slider round"></span>
+          </label>
+          <span className="toggle-label">AUTO-VOICE</span>
         </div>
       </div>
 

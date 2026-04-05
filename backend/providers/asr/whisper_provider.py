@@ -87,10 +87,25 @@ class WhisperASRProvider(ASRProvider):
             ),
         )
 
+        # Hallucination blacklist (Common Whisper ghost speech)
+        hallucination_patterns = [
+            "thank you", "thanks for watching", "read by", "subtitles", 
+            "captioned", "youtube", "subscribe", "please like", "the end",
+            "...", "..", "."
+        ]
+
         # Collect all segment texts
         text_parts = []
         for segment in segments:
-            text_parts.append(segment.text.strip())
+            text = segment.text.strip()
+            
+            # Simple hallucination filter
+            low_text = text.lower()
+            is_hallucination = any(p in low_text for p in hallucination_patterns)
+            
+            # Additional heuristic: If it's very short, it's likely noise
+            if len(text) > 1 and not is_hallucination:
+                text_parts.append(text)
 
         full_text = " ".join(text_parts).strip()
 

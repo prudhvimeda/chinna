@@ -11,6 +11,7 @@ export enum EventType {
   STOP_LISTENING = 'stop_listening',
   INTERRUPT = 'interrupt',
   CONFIG_UPDATE = 'config_update',
+  SET_AUTO_MODE = 'set_auto_mode',
 
   // Server → Client
   TRANSCRIPT_PARTIAL = 'transcript_partial',
