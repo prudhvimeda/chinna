@@ -7,6 +7,7 @@ import { ConnectionState, PipelineStatus } from '@/lib/types';
 import VoiceOrb from '@/components/VoiceOrb';
 import TranscriptPanel from '@/components/TranscriptPanel';
 import LatencyDashboard from '@/components/LatencyDashboard';
+import { useCameraPresence } from '@/hooks/useCameraPresence';
 
 export default function Home() {
   const {
@@ -34,6 +35,16 @@ export default function Home() {
 
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
   const [isAutoMode, setIsAutoMode] = useState(false);
+  const [useVisualSync, setUseVisualSync] = useState(false);
+
+  // Vision Hook
+  const { 
+    isUserDetected, 
+    modelLoaded, 
+    videoRef, 
+    startCamera, 
+    stopCamera 
+  } = useCameraPresence();
 
   const isConnected = connectionState === ConnectionState.CONNECTED;
 
@@ -97,6 +108,20 @@ export default function Home() {
       setAnalyserNode(null);
     }
   }, [isAutoMode, isConnected, setAutoMode, startRecording, sendAudio, getAnalyserNode, isRecording, stopRecording]);
+
+  // Synchronize Vision with Auto Mode
+  useEffect(() => {
+    if (useVisualSync) {
+      startCamera();
+      if (isUserDetected) {
+        setIsAutoMode(true);
+      } else {
+        setIsAutoMode(false);
+      }
+    } else {
+      stopCamera();
+    }
+  }, [useVisualSync, isUserDetected, startCamera, stopCamera]);
 
   // Keyboard shortcut: Space to toggle recording
   useEffect(() => {
@@ -162,12 +187,28 @@ export default function Home() {
                 type="checkbox" 
                 checked={isAutoMode} 
                 onChange={() => setIsAutoMode(!isAutoMode)} 
+                disabled={useVisualSync}
             />
             <span className="slider round"></span>
           </label>
           <span className="toggle-label">AUTO-VOICE</span>
         </div>
+
+        <div className="toggle-container" style={{ marginTop: '8px' }}>
+          <label className="switch">
+            <input 
+                type="checkbox" 
+                checked={useVisualSync} 
+                onChange={() => setUseVisualSync(!useVisualSync)} 
+            />
+            <span className="slider round green"></span>
+          </label>
+          <span className="toggle-label">VISUAL-SYNC {isUserDetected ? '[LOCKED]' : '[SCANNING]'}</span>
+        </div>
       </div>
+
+      {/* Hidden Vision Feed */}
+      <video ref={videoRef} style={{ display: 'none' }} playsInline muted />
 
       {/* Absolute top-right HUD */}
       <div className="hud top-right text-right">

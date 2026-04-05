@@ -391,3 +391,13 @@ input:checked + .slider:before {
 }
 .metric-label { color: rgba(255,255,255,0.6); }
 .metric-value { color: #f8f8f2; }
+
+input:checked + .slider.green {
+  background-color: rgba(39, 201, 63, 0.2);
+  border-color: #27c93f;
+}
+
+input:checked + .slider.green:before {
+  background-color: #27c93f;
+  box-shadow: 0 0 10px rgba(39, 201, 63, 0.5);
+}

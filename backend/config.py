@@ -68,7 +68,7 @@ class Settings(BaseSettings):
 
     # ── VAD (Voice Activity Detection) ────────────────────────
     vad_threshold: float = Field(
-        default=0.015,
+        default=0.02,
         description="RMS volume threshold for speech detection (0.01 to 0.05)",
     )
     silence_timeout_ms: int = Field(

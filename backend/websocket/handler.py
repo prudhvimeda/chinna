@@ -108,9 +108,23 @@ class WebSocketHandler:
                                         ))
                                     else:
                                         # Too short, probably a noise pop
+                                        logger.debug(f"🔇 Speech too short ({int(speech_duration)}ms), resetting.")
                                         is_speech_active = False
                                         silence_start_time = 0
                                         audio_buffer.clear()
+
+                        # ── Max Speech Duration Fail-safe ────────────
+                        if is_speech_active and (current_time - last_speech_time) > 30:
+                            logger.warning("🕒 Max speech duration (30s) reached. Forcing trigger.")
+                            audio_data = bytes(audio_buffer)
+                            audio_buffer.clear()
+                            is_speech_active = False
+                            silence_start_time = 0
+                            asyncio.create_task(self.pipeline.process_turn(
+                                audio_data=audio_data,
+                                session=session,
+                                send_event=lambda event: self._send_event(websocket, event),
+                            ))
 
         except WebSocketDisconnect:
             logger.info(f"🔌 Client disconnected (session: {session.session_id[:8]})")
