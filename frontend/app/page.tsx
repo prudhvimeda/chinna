@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useMicrophone } from '@/hooks/useMicrophone';
 import { ConnectionState, PipelineStatus } from '@/lib/types';
 import VoiceOrb from '@/components/VoiceOrb';
 import TranscriptPanel from '@/components/TranscriptPanel';
 import LatencyDashboard from '@/components/LatencyDashboard';
-import { useCameraPresence } from '@/hooks/useCameraPresence';
+import { useVisualSpeech } from '@/hooks/useVisualSpeech';
 
 export default function Home() {
   const {
@@ -21,7 +21,6 @@ export default function Home() {
     startListening,
     stopListening,
     interrupt,
-    setAutoMode,
     connect,
     disconnect,
   } = useWebSocket();
@@ -34,19 +33,35 @@ export default function Home() {
   } = useMicrophone();
 
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
-  const [isAutoMode, setIsAutoMode] = useState(false);
-  const [useVisualSync, setUseVisualSync] = useState(false);
+  const [visualVoiceMode, setVisualVoiceMode] = useState(false);
+  const lastMouthMoveRef = useRef<number>(0);
 
-  // Vision Hook
-  const { 
-    isUserDetected, 
-    modelLoaded, 
-    videoRef, 
-    startCamera, 
-    stopCamera 
-  } = useCameraPresence();
+  const {
+      isMouthMoving,
+      mouthAperture,
+      videoRef,
+      startCamera,
+      stopCamera
+  } = useVisualSpeech();
 
   const isConnected = connectionState === ConnectionState.CONNECTED;
+
+  // Explicit Start/Stop for Automation
+  const startTurn = useCallback(async () => {
+    if (isRecording || !isConnected) return;
+    startListening();
+    await startRecording((audioData) => {
+      sendAudio(audioData);
+    });
+    setAnalyserNode(getAnalyserNode());
+  }, [isRecording, isConnected, startListening, startRecording, sendAudio, getAnalyserNode]);
+
+  const stopTurn = useCallback(() => {
+    if (!isRecording) return;
+    stopListening();
+    stopRecording();
+    setAnalyserNode(null);
+  }, [isRecording, stopListening, stopRecording]);
 
   // Handle orb click — toggle recording
   const handleOrbClick = useCallback(async () => {
@@ -55,73 +70,46 @@ export default function Home() {
       return;
     }
 
-    if (isAutoMode) return; // In auto mode, the orb is purely visual/interruptive
-
     if (isRecording) {
-      stopListening();
-      stopRecording();
-      setAnalyserNode(null);
+      stopTurn();
     } else {
-      if (connectionState !== ConnectionState.CONNECTED) {
-        connect();
-        return;
-      }
-      startListening();
-      await startRecording((audioData) => {
-        sendAudio(audioData);
-      });
-      setAnalyserNode(getAnalyserNode());
+      await startTurn();
     }
-  }, [
-    isRecording,
-    isAutoMode,
-    connectionState,
-    pipelineStatus,
-    startRecording,
-    stopRecording,
-    sendAudio,
-    startListening,
-    stopListening,
-    interrupt,
-    connect,
-    getAnalyserNode,
-  ]);
+  }, [isRecording, pipelineStatus, interrupt, startTurn, stopTurn]);
 
-  // Synchronize Auto Mode with backend
+  // ── Visual Speech Logic ──────────────────────────────────────
   useEffect(() => {
-    setAutoMode(isAutoMode);
-    
-    // If turning on auto mode, start recording immediately
-    if (isAutoMode && isConnected && !isRecording) {
-      const initAutoRecord = async () => {
-        await startRecording((audioData) => {
-          sendAudio(audioData);
-        });
-        setAnalyserNode(getAnalyserNode());
-      };
-      initAutoRecord();
-    }
-    
-    // If turning off auto mode, stop recording
-    if (!isAutoMode && isRecording) {
-      stopRecording();
-      setAnalyserNode(null);
-    }
-  }, [isAutoMode, isConnected, setAutoMode, startRecording, sendAudio, getAnalyserNode, isRecording, stopRecording]);
-
-  // Synchronize Vision with Auto Mode
-  useEffect(() => {
-    if (useVisualSync) {
+    if (visualVoiceMode) {
       startCamera();
-      if (isUserDetected) {
-        setIsAutoMode(true);
-      } else {
-        setIsAutoMode(false);
-      }
     } else {
       stopCamera();
     }
-  }, [useVisualSync, isUserDetected, startCamera, stopCamera]);
+  }, [visualVoiceMode, startCamera, stopCamera]);
+
+  useEffect(() => {
+    if (!visualVoiceMode || !isConnected) return;
+
+    if (isMouthMoving) {
+        lastMouthMoveRef.current = Date.now();
+        if (!isRecording && pipelineStatus === PipelineStatus.IDLE) {
+            startTurn();
+        }
+    } else {
+        // If mouth is closed, wait 1.5s before stopping
+        if (isRecording) {
+            const now = Date.now();
+            const silenceTime = now - lastMouthMoveRef.current;
+            if (silenceTime > 1500) {
+                stopTurn();
+            }
+        }
+    }
+  }, [isMouthMoving, isRecording, visualVoiceMode, isConnected, pipelineStatus, startTurn, stopTurn]);
+
+  // Auto-connect on mount for true hacker feel
+  useEffect(() => {
+    connect();
+  }, [connect]);
 
   // Keyboard shortcut: Space to toggle recording
   useEffect(() => {
@@ -134,11 +122,6 @@ export default function Home() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleOrbClick]);
-
-  // Auto-connect on mount for true hacker feel
-  useEffect(() => {
-    connect();
-  }, [connect]);
 
 
   return (
@@ -180,30 +163,17 @@ export default function Home() {
           <span style={{color: '#fff'}}>pipeline: </span>
           {pipelineStatus.toUpperCase()}
         </div>
-        
+
         <div className="toggle-container" style={{ marginTop: '16px' }}>
           <label className="switch">
             <input 
                 type="checkbox" 
-                checked={isAutoMode} 
-                onChange={() => setIsAutoMode(!isAutoMode)} 
-                disabled={useVisualSync}
-            />
-            <span className="slider round"></span>
-          </label>
-          <span className="toggle-label">AUTO-VOICE</span>
-        </div>
-
-        <div className="toggle-container" style={{ marginTop: '8px' }}>
-          <label className="switch">
-            <input 
-                type="checkbox" 
-                checked={useVisualSync} 
-                onChange={() => setUseVisualSync(!useVisualSync)} 
+                checked={visualVoiceMode} 
+                onChange={() => setVisualVoiceMode(!visualVoiceMode)} 
             />
             <span className="slider round green"></span>
           </label>
-          <span className="toggle-label">VISUAL-SYNC {isUserDetected ? '[LOCKED]' : '[SCANNING]'}</span>
+          <span className="toggle-label">VISUAL-VOICE {isMouthMoving ? '[TALKING]' : '[WAITING]'}</span>
         </div>
       </div>
 
