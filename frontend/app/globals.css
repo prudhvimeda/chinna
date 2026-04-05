@@ -392,6 +392,17 @@ input:checked + .slider:before {
 .metric-label { color: rgba(255,255,255,0.6); }
 .metric-value { color: #f8f8f2; }
 
+.hud-indicator {
+  letter-spacing: 1px;
+  animation: pulse-soft 2s infinite;
+  text-shadow: 0 0 8px currentColor;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 input:checked + .slider.green {
   background-color: rgba(39, 201, 63, 0.2);
   border-color: #27c93f;

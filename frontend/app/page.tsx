@@ -92,14 +92,18 @@ export default function Home() {
     if (isMouthMoving) {
         lastMouthMoveRef.current = Date.now();
         if (!isRecording && pipelineStatus === PipelineStatus.IDLE) {
+            console.log("🗣️ Mouth detected! Starting recording...");
             startTurn();
         }
     } else {
-        // If mouth is closed, wait 1.5s before stopping
+        // If mouth is closed, wait for the timeout
         if (isRecording) {
             const now = Date.now();
             const silenceTime = now - lastMouthMoveRef.current;
-            if (silenceTime > 1500) {
+            
+            // Only stop if the mouth has been closed for 1.8s (a bit more natural padding)
+            if (silenceTime > 1800) {
+                console.log("⏹️ User stopped speaking (visually). Triggering response.");
                 stopTurn();
             }
         }
@@ -175,6 +179,12 @@ export default function Home() {
           </label>
           <span className="toggle-label">VISUAL-VOICE {isMouthMoving ? '[TALKING]' : '[WAITING]'}</span>
         </div>
+        
+        {visualVoiceMode && (
+             <div className="hud-indicator mt-2" style={{ color: isMouthMoving ? '#64ffda' : 'rgba(255,255,255,0.4)', fontSize: '10px', fontFamily: 'monospace' }}>
+                {isMouthMoving ? '>>> SIGHT_LOCKED: MOUTH_ACTIVE' : '>>> SIGHT_LOCKED: SCANNING_FOR_SPEECH'}
+             </div>
+        )}
       </div>
 
       {/* Hidden Vision Feed */}
