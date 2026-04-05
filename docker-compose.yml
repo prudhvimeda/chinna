@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # ── Ollama (LLM Server) ────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: chinna-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  # ── Backend (FastAPI) ──────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chinna-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - WHISPER_MODEL_SIZE=base
+      - WHISPER_DEVICE=cpu
+      - TTS_PROVIDER=kokoro
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  # ── Frontend (Next.js) ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chinna-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  ollama-data:

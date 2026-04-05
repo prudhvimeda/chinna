@@ -1,0 +1,30 @@
+# Core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+websockets==14.1
+python-dotenv==1.0.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# ASR - Speech Recognition
+faster-whisper==1.1.0
+
+# LLM - Language Model
+httpx==0.28.1
+ollama==0.4.7
+
+# TTS - Text to Speech
+kokoro>=0.3.0
+soundfile==0.13.1
+numpy>=1.26.0
+
+# Monitoring
+prometheus-client==0.21.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+
+# Linting
+ruff==0.8.6
