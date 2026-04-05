@@ -1,4 +1,8 @@
 'use client';
+// Ensure speech synthesis voices are loaded
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.getVoices();
+}
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -57,11 +61,11 @@ export default function Home() {
   }, [isRecording, isConnected, startListening, startRecording, sendAudio, getAnalyserNode]);
 
   const stopTurn = useCallback(() => {
-    if (!isRecording) return;
-    stopListening();
-    stopRecording();
-    setAnalyserNode(null);
-  }, [isRecording, stopListening, stopRecording]);
+  if (!isRecording) return;
+  stopListening();
+  stopRecording();
+  setAnalyserNode(null);
+}, [isRecording, stopListening, stopRecording]);
 
   // Handle orb click — toggle recording
   const handleOrbClick = useCallback(async () => {
@@ -96,16 +100,14 @@ export default function Home() {
             startTurn();
         }
     } else {
-        // If mouth is closed, wait for the timeout
-        if (isRecording) {
-            const now = Date.now();
-            const silenceTime = now - lastMouthMoveRef.current;
-            
-            // Only stop if the mouth has been closed for 1.8s (a bit more natural padding)
-            if (silenceTime > 1800) {
-                console.log("⏹️ User stopped speaking (visually). Triggering response.");
-                stopTurn();
-            }
+        // If mouth is closed, wait for the timeout and stop regardless of isRecording state
+        const now = Date.now();
+        const silenceTime = now - lastMouthMoveRef.current;
+        
+        // Only stop if the mouth has been closed for 1.8s (a bit more natural padding)
+        if (silenceTime > 1800) {
+            console.log("⏹️ User stopped speaking (visually). Triggering response.");
+            stopTurn();
         }
     }
   }, [isMouthMoving, isRecording, visualVoiceMode, isConnected, pipelineStatus, startTurn, stopTurn]);
