@@ -1,10 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
-import * as tf from '@tensorflow/tfjs-core';
-import '@tensorflow/tfjs-backend-webgl';
-import '@mediapipe/face_mesh'; // Required for MediaPipe runtime model loading
+import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
 export function useVisualSpeech() {
   const [isMouthMoving, setIsMouthMoving] = useState(false);
@@ -12,20 +9,25 @@ export function useVisualSpeech() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const detectorRef = useRef<faceLandmarksDetection.FaceLandmarksDetector | null>(null);
+  const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const requestRef = useRef<number>(0);
 
   const setupDetector = useCallback(async () => {
     try {
-      await tf.ready();
-      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-      const detectorConfig: faceLandmarksDetection.MediaPipeFaceMeshTfjsModelConfig = {
-        runtime: 'tfjs',
-        refineLandmarks: true,
-        maxFaces: 1,
-      };
-      detectorRef.current = await faceLandmarksDetection.createDetector(model, detectorConfig);
+      const filesetResolver = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      );
+      landmarkerRef.current = await FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+          delegate: 'GPU',
+        },
+        outputFaceBlendshapes: true,
+        runningMode: 'VIDEO',
+        numFaces: 1,
+      });
       setModelLoaded(true);
+      console.log('✅ Face Landmarker loaded successfully.');
     } catch (err) {
       console.error('Face Mesh setup error:', err);
       setError('Failed to load Face Mesh model.');
@@ -33,7 +35,7 @@ export function useVisualSpeech() {
   }, []);
 
   const detect = useCallback(async () => {
-    if (!detectorRef.current || !videoRef.current) return;
+    if (!landmarkerRef.current || !videoRef.current) return;
 
     if (videoRef.current.readyState < 2) {
       requestRef.current = requestAnimationFrame(detect);
@@ -41,29 +43,31 @@ export function useVisualSpeech() {
     }
 
     try {
-      const faces = await detectorRef.current.estimateFaces(videoRef.current);
+      const startTimeMs = performance.now();
+      const results = landmarkerRef.current.detectForVideo(videoRef.current, startTimeMs);
       
-      if (faces.length > 0) {
-        const keypoints = faces[0].keypoints;
+      if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+        const landmarks = results.faceLandmarks[0];
         
         // Landmark 13 is Upper Inner Lip, 14 is Lower Inner Lip
-        const lipTop = keypoints.find(kp => kp.name === 'lipTopInner' || (kp as any).index === 13);
-        const lipBottom = keypoints.find(kp => kp.name === 'lipBottomInner' || (kp as any).index === 14);
+        const lipTop = landmarks[13];
+        const lipBottom = landmarks[14];
 
         if (lipTop && lipBottom) {
-             // Calculate Euclidean distance (2D) for simplicity
-             const distance = Math.sqrt(
-                Math.pow(lipTop.x - lipBottom.x, 2) + 
-                Math.pow(lipTop.y - lipBottom.y, 2)
-             );
+             // Normalized coordinates (0.0 to 1.0)
+             // Calculate Vertical distance
+             const distance = Math.abs(lipTop.y - lipBottom.y);
              
              setMouthAperture(distance);
              
-             // threshold of ~4-5 pixels for "open" (depends on camera distance)
-             const threshold = 4.5; 
+             // threshold of ~0.015-0.02 (normalized) for "open"
+             const threshold = 0.018; 
              const moving = distance > threshold;
              
-             setIsMouthMoving(moving);
+             if (moving !== isMouthMoving) {
+                 setIsMouthMoving(moving);
+                 // console.log(`👄 Mouth State: ${moving ? 'OPEN' : 'CLOSED'} (val: ${distance.toFixed(4)})`);
+             }
         }
       } else {
         setIsMouthMoving(false);
@@ -74,14 +78,14 @@ export function useVisualSpeech() {
     }
 
     requestRef.current = requestAnimationFrame(detect);
-  }, []);
+  }, [isMouthMoving]);
 
   useEffect(() => {
     setupDetector();
 
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      if (detectorRef.current) detectorRef.current.dispose();
+      if (landmarkerRef.current) landmarkerRef.current.close();
     };
   }, [setupDetector]);
 
@@ -90,7 +94,7 @@ export function useVisualSpeech() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240, facingMode: 'user' },
+        video: { width: 640, height: 480, facingMode: 'user' },
         audio: false,
       });
       if (videoRef.current) {
@@ -102,7 +106,7 @@ export function useVisualSpeech() {
       }
     } catch (err) {
       console.error('Camera access error:', err);
-      setError('Camera access denied. Visual Voice disabled.');
+      setError('Camera access denied.');
     }
   }, [detect]);
 
