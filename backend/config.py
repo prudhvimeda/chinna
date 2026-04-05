@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # ── LLM (Language Model) ──────────────────────────────────
     ollama_model: str = Field(
-        default="llama3.2:3b",
+        default="llama3.2:latest",
         description="Ollama model name",
     )
     ollama_host: str = Field(

@@ -10,59 +10,15 @@ interface VoiceOrbProps {
   analyserNode: AnalyserNode | null;
 }
 
-// Helper for soft noise to make the blob organic
-class Noise {
-  private p: Uint8Array;
-  constructor() {
-    this.p = new Uint8Array(512);
-    for (let i = 0; i < 256; i++) this.p[i] = Math.floor(Math.random() * 256);
-    for (let i = 0; i < 256; i++) this.p[i + 256] = this.p[i];
-  }
-
-  private fade(t: number) { return t * t * t * (t * (t * 6 - 15) + 10); }
-  private lerp(t: number, a: number, b: number) { return a + t * (b - a); }
-  private grad(hash: number, x: number, y: number, z: number) {
-    const h = hash & 15;
-    const u = h < 8 ? x : y;
-    const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
-    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
-  }
-
-  noise(x: number, y: number, z: number) {
-    const X = Math.floor(x) & 255;
-    const Y = Math.floor(y) & 255;
-    const Z = Math.floor(z) & 255;
-    x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
-    const u = this.fade(x), v = this.fade(y), w = this.fade(z);
-    const A = this.p[X] + Y, AA = this.p[A] + Z, AB = this.p[A + 1] + Z;
-    const B = this.p[X + 1] + Y, BA = this.p[B] + Z, BB = this.p[B + 1] + Z;
-
-    return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, z),
-      this.grad(this.p[BA], x - 1, y, z)),
-      this.lerp(u, this.grad(this.p[AB], x, y - 1, z),
-        this.grad(this.p[BB], x - 1, y - 1, z))),
-      this.lerp(v, this.lerp(u, this.grad(this.p[AA + 1], x, y, z - 1),
-        this.grad(this.p[BA + 1], x - 1, y, z - 1)),
-        this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
-          this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
-  }
-}
-
 export default function VoiceOrb({ status, isRecording, onClick, analyserNode }: VoiceOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
-  const noiseRef = useRef(new Noise());
 
-  const getStatusColor = () => {
-    if (isRecording) return '110, 190, 255'; // Vibrant Blue
-    switch (status) {
-      case PipelineStatus.LISTENING: return '110, 190, 255';
-      case PipelineStatus.TRANSCRIBING:
-      case PipelineStatus.THINKING: return '160, 110, 255'; // Magenta / Violet
-      case PipelineStatus.SPEAKING: return '255, 255, 255'; // Pure White for assistant
-      case PipelineStatus.ERROR: return '255, 80, 80'; // Red
-      default: return '40, 40, 50'; // Dull grey for idle
-    }
+  const getDialColor = () => {
+    if (status === PipelineStatus.SPEAKING) return 'rgba(255, 255, 255, 0.8)';
+    if (status === PipelineStatus.THINKING) return 'rgba(255, 121, 198, 0.8)';
+    if (isRecording) return 'rgba(79, 209, 197, 0.8)';
+    return 'rgba(255, 255, 255, 0.3)';
   };
 
   useEffect(() => {
@@ -72,17 +28,15 @@ export default function VoiceOrb({ status, isRecording, onClick, analyserNode }:
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Use a high resolution canvas but displayed smaller for crispness
-    const size = 600; 
+    const size = 500; 
     canvas.width = size;
     canvas.height = size;
     const cx = size / 2;
     const cy = size / 2;
 
     let time = 0;
-    const maxRadius = 120;
-    const numPoints = 150;
-    const noiseCalc = noiseRef.current;
+    const baseOrbRadius = 130;
+    const ringRadius = 180;
 
     const draw = () => {
       ctx.clearRect(0, 0, size, size);
@@ -90,79 +44,120 @@ export default function VoiceOrb({ status, isRecording, onClick, analyserNode }:
       let audioVolume = 0;
       let audioData = new Uint8Array(0);
 
-      // Analyze real-time audio if available
       if (analyserNode && (isRecording || status === PipelineStatus.SPEAKING)) {
         audioData = new Uint8Array(analyserNode.frequencyBinCount);
         analyserNode.getByteFrequencyData(audioData);
-        const sum = audioData.slice(0, 50).reduce((a, b) => a + b, 0); // focus on lower freqs
-        audioVolume = sum / (50 * 255); // normalized 0-1
+        const sum = audioData.slice(0, 50).reduce((a, b) => a + b, 0); 
+        audioVolume = sum / (50 * 255); // normalized
       }
 
-      // Base radius fluctuates heavily with audio volume
-      const dynamicRadius = maxRadius + (audioVolume * 100); 
-      
-      const rgb = getStatusColor();
-      const isIdle = !isRecording && status === PipelineStatus.IDLE;
-      const speed = isIdle ? 0.005 : (isRecording ? 0.02 : 0.05);
-      
-      time += speed + (audioVolume * 0.05);
+      time += status === PipelineStatus.IDLE && !isRecording ? 0.005 : 0.02;
 
+      // 1. Draw 3D Gel Orb
+      const currentRadius = baseOrbRadius + (audioVolume * 25);
+      
+      // We simulate a 3D dented/wavy gel by drawing multiple offset gradients
+      ctx.save();
+      ctx.translate(cx, cy);
+      
+      // Rotate the entire gel effect slowly
+      ctx.rotate(time * 0.5);
+
+      // Main shape is a slightly deformed circle
       ctx.beginPath();
-
-      // Draw the blob
-      for (let i = 0; i <= numPoints; i++) {
-        const angle = (i / numPoints) * Math.PI * 2;
-        
-        // Map 2D circle to 3D noise space for seamless loop
-        const nx = Math.cos(angle) + 1; 
-        const ny = Math.sin(angle) + 1;
-        
-        // Noise magnitude increases with audio volume
-        const noiseMagnitude = isIdle ? 0.2 : 0.5 + (audioVolume * 2);
-        
-        // Add high frequency jitter if thinking/speaking based on actual frequency bands
-        let freqAmp = 0;
-        if (audioData.length > 0) {
-            const bin = Math.floor((i / numPoints) * (audioData.length * 0.25));
-            freqAmp = (audioData[bin] / 255) * 40 * audioVolume;
-        }
-
-        const n = noiseCalc.noise(nx * 1.5, ny * 1.5, time) * noiseMagnitude;
-        const r = dynamicRadius * (1 + n) + freqAmp;
-
-        const x = cx + Math.cos(angle) * r;
-        const y = cy + Math.sin(angle) * r;
-
+      for (let i = 0; i <= Math.PI * 2; i += 0.1) {
+        // Subtle deformation based on time/volume
+        const deform = Math.sin(i * 3 + time * 2) * (10 + (audioVolume * 20));
+        const r = currentRadius + deform;
+        const x = Math.cos(i) * r;
+        const y = Math.sin(i) * r;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
-
       ctx.closePath();
 
-      // Core blob fill
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, dynamicRadius * 1.5);
-      grad.addColorStop(0, `rgba(${rgb}, 0.9)`);
+      // Shadow/Inner Glow for 3D effect
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetX = 10;
+      ctx.shadowOffsetY = 10;
+
+      // Create complex shading gradient (Teal/Cyan gel)
+      let color1, color2, color3;
       if (status === PipelineStatus.THINKING) {
-         grad.addColorStop(0.5, `rgba(100, 200, 255, 0.5)`);
+        color1 = '#ff79c6'; color2 = '#bd93f9'; color3 = '#6272a4';
+      } else if (status === PipelineStatus.SPEAKING) {
+        color1 = '#f8f8f2'; color2 = '#8be9fd'; color3 = '#4fd1c5';
+      } else {
+        // ElevenLabs Teal look
+        color1 = '#81e6d9'; color2 = '#38b2ac'; color3 = '#2c7a7b';
       }
-      grad.addColorStop(1, `rgba(${rgb}, 0.0)`);
-      
+
+      const grad = ctx.createRadialGradient(-30, -30, 10, 0, 0, currentRadius);
+      grad.addColorStop(0, color1);
+      grad.addColorStop(0.5, color2);
+      grad.addColorStop(1, color3);
+
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // Sharp edge rim
-      ctx.strokeStyle = `rgba(${rgb}, ${isIdle ? 0.3 : 1})`;
-      ctx.lineWidth = isIdle ? 1 : 2 + (audioVolume * 5);
-      ctx.stroke();
+      // Add "dented" inner lighting to simulate smooth cloth/gel folds
+      ctx.shadowColor = 'transparent';
+      const innerGrad = ctx.createRadialGradient(20, 20, 0, 0, 0, currentRadius);
+      innerGrad.addColorStop(0, 'rgba(255,255,255,0.4)');
+      innerGrad.addColorStop(0.4, 'rgba(255,255,255,0)');
+      innerGrad.addColorStop(1, 'rgba(0,0,0,0.4)');
+      
+      ctx.fillStyle = innerGrad;
+      ctx.fill();
 
-      // Outer glow based on volume
-      if (audioVolume > 0.1 || status === PipelineStatus.THINKING) {
-        ctx.shadowBlur = 40 + (audioVolume * 60);
-        ctx.shadowColor = `rgba(${rgb}, 0.6)`;
+      ctx.restore();
+
+      // 2. Draw Dashed Tuning Ring
+      ctx.save();
+      ctx.translate(cx, cy);
+      // Ring reacts to volume
+      const currentRingRadius = ringRadius + (audioVolume * 15);
+      
+      // Rotate the ring based on time
+      ctx.rotate(-time * 0.8);
+      
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = getDialColor();
+      
+      // Draw ticks (dashed logic)
+      const numTicks = 60;
+      for (let i = 0; i < numTicks; i++) {
+        const angle = (i / numTicks) * Math.PI * 2;
+        // Make some ticks longer/shorter randomly for audio effect or organically
+        let tickLength = 12;
+        
+        // If recording, ticks react to audio frequencies
+        if (audioData.length > 0) {
+            const bin = Math.floor((i / numTicks) * (audioData.length * 0.5));
+            const amp = audioData[bin] / 255;
+            tickLength = 12 + (amp * 30);
+            
+            // Highlight ticks that are very loud
+            if (amp > 0.5) {
+                ctx.strokeStyle = '#fff';
+            } else {
+                ctx.strokeStyle = getDialColor();
+            }
+        }
+
+        ctx.beginPath();
+        const startX = Math.cos(angle) * (currentRingRadius);
+        const startY = Math.sin(angle) * (currentRingRadius);
+        const endX = Math.cos(angle) * (currentRingRadius + tickLength);
+        const endY = Math.sin(angle) * (currentRingRadius + tickLength);
+        
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
         ctx.stroke();
-        ctx.shadowBlur = 0; // reset
       }
 
+      ctx.restore();
       animationRef.current = requestAnimationFrame(draw);
     };
 
@@ -181,7 +176,7 @@ export default function VoiceOrb({ status, isRecording, onClick, analyserNode }:
         className={`blob-canvas ${isRecording || status !== PipelineStatus.IDLE ? 'active' : ''}`} 
       />
       {status === PipelineStatus.IDLE && !isRecording && (
-        <div className="blob-hint">SPACEBAR</div>
+        <div className="blob-hint">TAP OR SPACEBAR</div>
       )}
     </div>
   );
