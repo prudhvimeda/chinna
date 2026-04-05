@@ -54,7 +54,7 @@ class VoicePipeline:
 
     async def initialize(self) -> None:
         """Initialize all providers."""
-        logger.info("🚀 Initializing Chinna voice pipeline...")
+        logger.info("🚀 Initializing RJ voice pipeline...")
 
         # Initialize providers concurrently
         results = await asyncio.gather(
@@ -151,7 +151,7 @@ class VoicePipeline:
             await send_event(Event.llm_complete(response_text, session_id=session.session_id))
             session.add_assistant_message(response_text)
 
-            logger.info(f"🤖 Chinna: {response_text[:100]}...")
+            logger.info(f"🤖 RJ: {response_text[:100]}...")
 
             # Check for interruption
             if self._interrupted:

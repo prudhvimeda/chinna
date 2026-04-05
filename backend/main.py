@@ -23,7 +23,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("chinna")
+logger = logging.getLogger("rj")
 
 # ── App State ─────────────────────────────────────────────────
 settings = get_settings()
@@ -37,13 +37,13 @@ ws_handler = WebSocketHandler(pipeline, session_manager)
 async def lifespan(app: FastAPI):
     """Application startup and shutdown."""
     logger.info("=" * 60)
-    logger.info("  🤖 Chinna AI Voice Assistant")
+    logger.info("  🤖 RJ AI Voice Assistant")
     logger.info("  Starting up...")
     logger.info("=" * 60)
 
     try:
         await pipeline.initialize()
-        logger.info("🟢 Chinna is ready to listen!")
+        logger.info("🟢 RJ is ready to listen!")
     except Exception as e:
         logger.error(f"🔴 Failed to initialize: {e}")
         logger.error("   Make sure Ollama is running: 'ollama serve'")
@@ -51,14 +51,14 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("Shutting down Chinna...")
+    logger.info("Shutting down RJ...")
     await pipeline.shutdown()
     logger.info("👋 Goodbye!")
 
 
 # ── FastAPI App ───────────────────────────────────────────────
 app = FastAPI(
-    title="Chinna AI Voice Assistant",
+    title="RJ AI Voice Assistant",
     description="A production-ready, fully open-source voice assistant",
     version="1.0.0",
     lifespan=lifespan,
@@ -80,7 +80,7 @@ app.add_middleware(
 async def root():
     """API info."""
     return {
-        "name": "Chinna AI Voice Assistant",
+        "name": "RJ AI Voice Assistant",
         "version": "1.0.0",
         "status": "running",
         "pipeline": {

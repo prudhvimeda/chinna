@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Chinna — AI Voice Assistant",
+  title: "RJ — AI Voice Assistant",
   description: "A production-ready, fully open-source AI voice assistant. Offline capable, zero hallucination, professional and friendly.",
   keywords: ["AI", "voice assistant", "open source", "offline", "Jarvis"],
   authors: [{ name: "Prudhvi Narayana Meda" }],

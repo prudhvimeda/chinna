@@ -18,49 +18,46 @@ export default function TranscriptPanel({ messages, currentResponse }: Transcrip
     }
   }, [messages, currentResponse]);
 
-  if (messages.length === 0 && !currentResponse) {
-    return (
-      <div className="transcript-panel" id="transcript-panel">
-        <div className="transcript-empty">
-          <p className="transcript-empty-icon">💬</p>
-          <p className="transcript-empty-text">Start a conversation with Chinna</p>
-          <p className="transcript-empty-hint">Click the orb and speak</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="transcript-panel" id="transcript-panel" ref={scrollRef}>
-      <div className="transcript-messages">
+    <div className="terminal-panel" ref={scrollRef}>
+      <div className="terminal-header">
+        <span className="terminal-dot red"></span>
+        <span className="terminal-dot yellow"></span>
+        <span className="terminal-dot green"></span>
+        <span className="terminal-title">rj — bash</span>
+      </div>
+      <div className="terminal-body">
+        {messages.length === 0 && !currentResponse && (
+          <div className="terminal-line system">
+            <span className="prompt">~ %</span> RJ AI Subsystem Online. Awaiting input...
+          </div>
+        )}
+
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`transcript-message transcript-message--${msg.role}`}
+            className={`terminal-line ${msg.role === 'user' ? 'user' : 'assistant'}`}
           >
-            <div className="transcript-message-avatar">
-              {msg.role === 'user' ? '🧑' : '🤖'}
-            </div>
-            <div className="transcript-message-content">
-              <span className="transcript-message-role">
-                {msg.role === 'user' ? 'You' : 'Chinna'}
-              </span>
-              <p className="transcript-message-text">{msg.content}</p>
-            </div>
+            {msg.role === 'user' ? (
+              <>
+                <span className="prompt">user@local ~ %</span> 
+                <span className="text">{msg.content}</span>
+              </>
+            ) : (
+              <>
+                <span className="prompt assistant-prompt">rj ~ %</span> 
+                <span className="text assistant-text">{msg.content}</span>
+              </>
+            )}
           </div>
         ))}
 
         {/* Streaming response */}
         {currentResponse && (
-          <div className="transcript-message transcript-message--assistant transcript-message--streaming">
-            <div className="transcript-message-avatar">🤖</div>
-            <div className="transcript-message-content">
-              <span className="transcript-message-role">Chinna</span>
-              <p className="transcript-message-text">
-                {currentResponse}
-                <span className="typing-cursor">|</span>
-              </p>
-            </div>
+          <div className="terminal-line assistant streaming">
+            <span className="prompt assistant-prompt">rj ~ %</span> 
+            <span className="text assistant-text">{currentResponse}</span>
+            <span className="block-cursor">█</span>
           </div>
         )}
       </div>

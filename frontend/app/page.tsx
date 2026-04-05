@@ -6,7 +6,6 @@ import { useMicrophone } from '@/hooks/useMicrophone';
 import { ConnectionState, PipelineStatus } from '@/lib/types';
 import VoiceOrb from '@/components/VoiceOrb';
 import TranscriptPanel from '@/components/TranscriptPanel';
-import StatusIndicator from '@/components/StatusIndicator';
 import LatencyDashboard from '@/components/LatencyDashboard';
 
 export default function Home() {
@@ -37,21 +36,19 @@ export default function Home() {
   // Handle orb click — toggle recording
   const handleOrbClick = useCallback(async () => {
     if (pipelineStatus === PipelineStatus.SPEAKING) {
-      // Interrupt if assistant is speaking
       interrupt();
       return;
     }
 
     if (isRecording) {
-      // Stop recording and send audio
       stopListening();
       stopRecording();
       setAnalyserNode(null);
     } else {
       if (connectionState !== ConnectionState.CONNECTED) {
+        connect();
         return;
       }
-      // Start recording
       startListening();
       await startRecording((audioData) => {
         sendAudio(audioData);
@@ -68,6 +65,7 @@ export default function Home() {
     startListening,
     stopListening,
     interrupt,
+    connect,
     getAnalyserNode,
   ]);
 
@@ -79,118 +77,71 @@ export default function Home() {
         handleOrbClick();
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleOrbClick]);
 
   const isConnected = connectionState === ConnectionState.CONNECTED;
 
+  // Auto-connect on mount for true hacker feel
+  useEffect(() => {
+    connect();
+  }, [connect]);
+
+
   return (
-    <div className="app">
-      {/* Header */}
-      <header className="app-header">
-        <div className="app-logo">
-          <span className="app-logo-icon">🤖</span>
-          <span className="app-logo-text">Chinna</span>
+    <div className="dev-app">
+      {/* Absolute top-left HUD */}
+      <div className="hud top-left">
+        <div className="logo-text">RJ_SYS // v1.0</div>
+        <div className={`status ${isConnected ? 'online' : 'offline'}`}>
+          [{isConnected ? 'SYS_ONLINE' : 'SYS_OFFLINE'}]
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <StatusIndicator
-            connectionState={connectionState}
-            pipelineStatus={pipelineStatus}
-          />
-          {!isConnected ? (
-            <button className="connect-btn" onClick={connect} id="connect-btn">
-              ⚡ Connect
-            </button>
-          ) : (
-            <button
-              className="connect-btn connect-btn--disconnect"
-              onClick={disconnect}
-              id="disconnect-btn"
-            >
-              Disconnect
-            </button>
-          )}
+        <div className="sub-status">
+          <span style={{color: '#fff'}}>pipeline: </span>
+          {pipelineStatus.toUpperCase()}
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="app-main">
-        {/* Center: Voice Orb + Transcript */}
-        <div className="app-center">
-          <VoiceOrb
-            status={pipelineStatus}
-            isRecording={isRecording}
-            onClick={handleOrbClick}
-            analyserNode={analyserNode}
-          />
+      {/* Absolute top-right HUD */}
+      <div className="hud top-right text-right">
+        <div>ASR: <span className="highlight">faster-whisper</span></div>
+        <div>LLM: <span className="highlight">llama3.2</span></div>
+        <div>TTS: <span className="highlight">kokoro-82m</span></div>
+      </div>
 
-          {!isConnected && (
-            <div style={{
-              textAlign: 'center',
-              color: 'var(--color-text-muted)',
-              fontSize: '0.9rem',
-            }}>
-              <p>Click <strong>Connect</strong> to start talking to Chinna</p>
-              <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>
-                Make sure the backend is running on port 8000
-              </p>
+      {/* Center Stage: Blob Canvas */}
+      <main className="stage">
+        <VoiceOrb
+          status={pipelineStatus}
+          isRecording={isRecording}
+          onClick={handleOrbClick}
+          analyserNode={analyserNode}
+        />
+        
+        {!isConnected && (
+            <div className="connection-error" onClick={connect}>
+                ERR_CONNECTION_REFUSED. Click to retry.
             </div>
-          )}
+        )}
+      </main>
 
-          <div className="keyboard-hint">
-            <span>Press</span>
-            <kbd className="kbd">Space</kbd>
-            <span>to talk</span>
-          </div>
-
+      {/* Bottom Layout: Terminal + Latency Stack */}
+      <div className="bottom-hud">
+        <div className="terminal-wrapper">
           <TranscriptPanel
             messages={messages}
             currentResponse={currentResponse}
           />
         </div>
 
-        {/* Sidebar: Latency Dashboard */}
-        <aside className="app-sidebar">
-          <LatencyDashboard
-            metrics={latencyMetrics}
-            history={latencyHistory}
-          />
-
-          {/* Pipeline Info */}
-          <div className="latency-dashboard">
-            <h3 className="latency-title">🏗️ Pipeline</h3>
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              marginTop: '12px',
-              fontSize: '0.8rem',
-              color: 'var(--color-text-secondary)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>ASR</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>
-                  faster-whisper
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>LLM</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-accent)' }}>
-                  Ollama / Llama 3.2
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>TTS</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-success)' }}>
-                  Kokoro-82M
-                </span>
-              </div>
-            </div>
-          </div>
-        </aside>
-      </main>
+        <div className="metrics-wrapper">
+           <LatencyDashboard
+              metrics={latencyMetrics}
+              history={latencyHistory}
+           />
+        </div>
+      </div>
     </div>
   );
 }
