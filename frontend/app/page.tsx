@@ -11,7 +11,6 @@ import { ConnectionState, PipelineStatus } from '@/lib/types';
 import VoiceOrb from '@/components/VoiceOrb';
 import TranscriptPanel from '@/components/TranscriptPanel';
 import LatencyDashboard from '@/components/LatencyDashboard';
-import { useVisualSpeech } from '@/hooks/useVisualSpeech';
 
 export default function Home() {
   const {
@@ -37,16 +36,6 @@ export default function Home() {
   } = useMicrophone();
 
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
-  const [visualVoiceMode, setVisualVoiceMode] = useState(false);
-  const lastMouthMoveRef = useRef<number>(0);
-
-  const {
-      isMouthMoving,
-      mouthAperture,
-      videoRef,
-      startCamera,
-      stopCamera
-  } = useVisualSpeech();
 
   const isConnected = connectionState === ConnectionState.CONNECTED;
 
@@ -80,37 +69,6 @@ export default function Home() {
       await startTurn();
     }
   }, [isRecording, pipelineStatus, interrupt, startTurn, stopTurn]);
-
-  // ── Visual Speech Logic ──────────────────────────────────────
-  useEffect(() => {
-    if (visualVoiceMode) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-  }, [visualVoiceMode, startCamera, stopCamera]);
-
-  useEffect(() => {
-    if (!visualVoiceMode || !isConnected) return;
-
-    if (isMouthMoving) {
-        lastMouthMoveRef.current = Date.now();
-        if (!isRecording && pipelineStatus === PipelineStatus.IDLE) {
-            console.log("🗣️ Mouth detected! Starting recording...");
-            startTurn();
-        }
-    } else {
-        // If mouth is closed, wait for the timeout and stop regardless of isRecording state
-        const now = Date.now();
-        const silenceTime = now - lastMouthMoveRef.current;
-        
-        // Only stop if the mouth has been closed for 1.8s (a bit more natural padding)
-        if (silenceTime > 1800) {
-            console.log("⏹️ User stopped speaking (visually). Triggering response.");
-            stopTurn();
-        }
-    }
-  }, [isMouthMoving, isRecording, visualVoiceMode, isConnected, pipelineStatus, startTurn, stopTurn]);
 
   // Auto-connect on mount for true hacker feel
   useEffect(() => {
@@ -169,28 +127,7 @@ export default function Home() {
           <span style={{color: '#fff'}}>pipeline: </span>
           {pipelineStatus.toUpperCase()}
         </div>
-
-        <div className="toggle-container" style={{ marginTop: '16px' }}>
-          <label className="switch">
-            <input 
-                type="checkbox" 
-                checked={visualVoiceMode} 
-                onChange={() => setVisualVoiceMode(!visualVoiceMode)} 
-            />
-            <span className="slider round green"></span>
-          </label>
-          <span className="toggle-label">VISUAL-VOICE {isMouthMoving ? '[TALKING]' : '[WAITING]'}</span>
-        </div>
-        
-        {visualVoiceMode && (
-             <div className="hud-indicator mt-2" style={{ color: isMouthMoving ? '#64ffda' : 'rgba(255,255,255,0.4)', fontSize: '10px', fontFamily: 'monospace' }}>
-                {isMouthMoving ? '>>> SIGHT_LOCKED: MOUTH_ACTIVE' : '>>> SIGHT_LOCKED: SCANNING_FOR_SPEECH'}
-             </div>
-        )}
       </div>
-
-      {/* Hidden Vision Feed */}
-      <video ref={videoRef} style={{ display: 'none' }} playsInline muted />
 
       {/* Absolute top-right HUD */}
       <div className="hud top-right text-right">
