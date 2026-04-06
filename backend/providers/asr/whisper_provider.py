@@ -84,6 +84,8 @@ class WhisperASRProvider(ASRProvider):
             vad_parameters=dict(
                 min_silence_duration_ms=500,
                 speech_pad_ms=200,
+                onset=0.5,
+                offset=0.35,
             ),
         )
 

@@ -1,10 +1,6 @@
 'use client';
-// Ensure speech synthesis voices are loaded
-if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-  window.speechSynthesis.getVoices();
-}
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useMicrophone } from '@/hooks/useMicrophone';
 import { ConnectionState, PipelineStatus } from '@/lib/types';
@@ -19,13 +15,11 @@ export default function Home() {
     messages,
     currentResponse,
     latencyMetrics,
-    latencyHistory,
     sendAudio,
     startListening,
     stopListening,
     interrupt,
     connect,
-    disconnect,
   } = useWebSocket();
 
   const {
@@ -39,7 +33,6 @@ export default function Home() {
 
   const isConnected = connectionState === ConnectionState.CONNECTED;
 
-  // Explicit Start/Stop for Automation
   const startTurn = useCallback(async () => {
     if (isRecording || !isConnected) return;
     startListening();
@@ -50,19 +43,17 @@ export default function Home() {
   }, [isRecording, isConnected, startListening, startRecording, sendAudio, getAnalyserNode]);
 
   const stopTurn = useCallback(() => {
-  if (!isRecording) return;
-  stopListening();
-  stopRecording();
-  setAnalyserNode(null);
-}, [isRecording, stopListening, stopRecording]);
+    if (!isRecording) return;
+    stopListening();
+    stopRecording();
+    setAnalyserNode(null);
+  }, [isRecording, stopListening, stopRecording]);
 
-  // Handle orb click — toggle recording
   const handleOrbClick = useCallback(async () => {
     if (pipelineStatus === PipelineStatus.SPEAKING) {
       interrupt();
       return;
     }
-
     if (isRecording) {
       stopTurn();
     } else {
@@ -70,12 +61,10 @@ export default function Home() {
     }
   }, [isRecording, pipelineStatus, interrupt, startTurn, stopTurn]);
 
-  // Auto-connect on mount for true hacker feel
   useEffect(() => {
     connect();
   }, [connect]);
 
-  // Keyboard shortcut: Space to toggle recording
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && e.target === document.body) {
@@ -87,57 +76,28 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleOrbClick]);
 
-
   return (
     <>
-      {/* ElevenLabs Inspired Environment */}
-      <div className="stars-bg"></div>
-      <div className="ambient-halo"></div>
-
-      <div className="floating-apps">
-        <div className="floating-icon icon-1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
-        </div>
-        <div className="floating-icon icon-2">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        </div>
-        <div className="floating-icon icon-3">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        </div>
-        <div className="floating-icon icon-4">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-        </div>
-      </div>
-
-      <div className="dev-app">
-        {/* Absolute top-left HUD */}
-      <div className="hud top-left">
-        <div className="logo-container">
-          <svg className="app-logo" viewBox="0 0 100 100" width="24" height="24">
-            <polygon points="50,5 95,27.5 95,72.5 50,95 5,72.5 5,27.5" fill="none" stroke="#64ffda" strokeWidth="6" opacity="0.8" />
-            <circle cx="50" cy="50" r="28" fill="none" stroke="#ff79c6" strokeWidth="5" />
-            <circle cx="50" cy="50" r="14" fill="#64ffda" opacity="0.9" style={{animation: 'pulse 2s infinite'}} />
+      <div className="mesh-gradient" />
+      
+      {/* --- Top HUD: System Identity --- */}
+      <div className="stark-hud top-left" style={{ top: '40px', left: '40px' }}>
+        <div className="hud-glass stark-logo-wrapper">
+          <svg className="app-logo" viewBox="0 0 100 100" width="22" height="22">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--color-primary)" strokeWidth="8" strokeDasharray="20 10" />
+            <circle cx="50" cy="50" r="25" fill="var(--color-primary)" />
           </svg>
-          <div className="logo-text">RJ_SYS // v1.0</div>
+          <div className="logo-text">RJ_Subsystem // v2.0</div>
         </div>
-        <div className={`status ${isConnected ? 'online' : 'offline'}`}>
-          [{isConnected ? 'SYS_ONLINE' : 'SYS_OFFLINE'}]
-        </div>
-        <div className="sub-status">
-          <span style={{color: '#fff'}}>pipeline: </span>
-          {pipelineStatus.toUpperCase()}
+        
+        <div className="sys-status-indicator" style={{ marginTop: '16px', marginLeft: '20px' }}>
+          <div className={`status-dot ${isConnected ? 'online' : 'offline'}`} />
+          {isConnected ? 'STARK_NET_STABLE' : 'LINK_ESTABLISHING...'}
         </div>
       </div>
 
-      {/* Absolute top-right HUD */}
-      <div className="hud top-right text-right">
-        <div>ASR: <span className="highlight">faster-whisper</span></div>
-        <div>LLM: <span className="highlight">llama3.2</span></div>
-        <div>TTS: <span className="highlight">kokoro-82m</span></div>
-      </div>
-
-      {/* Center Stage: Blob Canvas */}
-      <main className="stage">
+      {/* --- Main Interaction Stage --- */}
+      <main className="main-stage">
         <VoiceOrb
           status={pipelineStatus}
           isRecording={isRecording}
@@ -146,28 +106,26 @@ export default function Home() {
         />
         
         {!isConnected && (
-            <div className="connection-error" onClick={connect}>
-                ERR_CONNECTION_REFUSED. Click to retry.
+            <div className="connection-error" onClick={connect} style={{ borderRadius: '12px', background: 'rgba(255,0,0,0.1)', border: '1px solid #ff5555' }}>
+                CRITICAL_LINK_FAILURE. RE-ENGAGE?
             </div>
         )}
       </main>
 
-      {/* Bottom Layout: Terminal + Latency Stack */}
-      <div className="bottom-hud">
-        <div className="terminal-wrapper">
+      {/* --- Bottom Dashboard: Intelligence HUD --- */}
+      <div className="bottom-dashboard">
+        <div className="hud-glass glass-card transcript-section">
           <TranscriptPanel
             messages={messages}
             currentResponse={currentResponse}
           />
         </div>
 
-        <div className="metrics-wrapper">
-           <LatencyDashboard
-              metrics={latencyMetrics}
-              history={latencyHistory}
-           />
+        <div className="hud-glass glass-card metrics-section">
+          <LatencyDashboard
+            metrics={latencyMetrics}
+          />
         </div>
-      </div>
       </div>
     </>
   );

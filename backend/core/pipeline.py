@@ -17,6 +17,7 @@ from monitoring.latency import LatencyTracker, LatencyHistory
 from providers.base import ASRProvider, LLMProvider, TTSProvider
 from providers.asr.whisper_provider import WhisperASRProvider
 from providers.llm.ollama_provider import OllamaLLMProvider
+from providers.llm.openai_provider import OpenAILLMProvider
 from providers.tts.kokoro_provider import KokoroTTSProvider
 
 logger = logging.getLogger(__name__)
@@ -37,12 +38,25 @@ class VoicePipeline:
             compute_type=settings.whisper_compute_type,
             language=settings.whisper_language,
         )
-        self.llm: LLMProvider = OllamaLLMProvider(
-            model=settings.ollama_model,
-            host=settings.ollama_host,
-            temperature=settings.llm_temperature,
-            max_tokens=settings.llm_max_tokens,
-        )
+        
+        if settings.llm_provider == "ollama":
+            self.llm: LLMProvider = OllamaLLMProvider(
+                model=settings.ollama_model,
+                host=settings.ollama_host,
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+            )
+        elif settings.llm_provider == "openai":
+            self.llm: LLMProvider = OpenAILLMProvider(
+                model=settings.openai_model,
+                api_key=settings.openai_api_key,
+                base_url=settings.openai_base_url,
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported LLM provider: {settings.llm_provider}")
+            
         self.tts: TTSProvider = KokoroTTSProvider(
             voice=settings.kokoro_voice,
         )

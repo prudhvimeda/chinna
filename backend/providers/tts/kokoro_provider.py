@@ -114,13 +114,13 @@ class KokoroTTSProvider(TTSProvider):
                         sf.write(buffer, audio, self._sample_rate, format="WAV", subtype="PCM_16")
                         buffer.seek(0)
                         chunk_bytes = buffer.read()
-                        asyncio.run_coroutine_threadsafe(
-                            chunk_queue.put(chunk_bytes), loop
+                        loop.call_soon_threadsafe(
+                            chunk_queue.put_nowait, chunk_bytes
                         )
             except Exception as e:
                 logger.error(f"Kokoro streaming error: {e}")
             finally:
-                asyncio.run_coroutine_threadsafe(finished.set(), loop)
+                loop.call_soon_threadsafe(finished.set)
 
         # Start synthesis in background thread
         loop.run_in_executor(None, _generate_chunks)

@@ -19,48 +19,33 @@ export default function TranscriptPanel({ messages, currentResponse }: Transcrip
   }, [messages, currentResponse]);
 
   return (
-    <div className="terminal-panel" ref={scrollRef}>
-      <div className="terminal-header">
-        <span className="terminal-dot red"></span>
-        <span className="terminal-dot yellow"></span>
-        <span className="terminal-dot green"></span>
-        <span className="terminal-title">rj — bash</span>
-      </div>
-      <div className="terminal-body">
-        {messages.length === 0 && !currentResponse && (
-          <div className="terminal-line system">
-            <span className="prompt">~ %</span> RJ AI Subsystem Online. Awaiting input...
+    <div className="transcript-scroll" ref={scrollRef}>
+      {messages.length === 0 && !currentResponse && (
+        <div className="chat-line assistant">
+          <div className="role">System</div>
+          <div className="content" style={{ opacity: 0.5, fontStyle: 'italic' }}>
+            Awaiting secure handshake... RJ Subsystem Online.
           </div>
-        )}
+        </div>
+      )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`terminal-line ${msg.role === 'user' ? 'user' : 'assistant'}`}
-          >
-            {msg.role === 'user' ? (
-              <>
-                <span className="prompt">user@local ~ %</span> 
-                <span className="text">{msg.content}</span>
-              </>
-            ) : (
-              <>
-                <span className="prompt assistant-prompt">rj ~ %</span> 
-                <span className="text assistant-text">{msg.content}</span>
-              </>
-            )}
-          </div>
-        ))}
+      {messages.map((msg) => (
+        <div key={msg.id} className={`chat-line ${msg.role}`}>
+          <div className="role">{msg.role === 'user' ? 'Local_User' : 'RJ_System'}</div>
+          <div className="content">{msg.content}</div>
+        </div>
+      ))}
 
-        {/* Streaming response */}
-        {currentResponse && (
-          <div className="terminal-line assistant streaming">
-            <span className="prompt assistant-prompt">rj ~ %</span> 
-            <span className="text assistant-text">{currentResponse}</span>
-            <span className="block-cursor">█</span>
+      {/* Streaming response */}
+      {currentResponse && (
+        <div className="chat-line assistant">
+          <div className="role">RJ_System</div>
+          <div className="content">
+            {currentResponse}
+            <span className="block-cursor" style={{ marginLeft: '4px', color: 'var(--color-primary)' }}>█</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

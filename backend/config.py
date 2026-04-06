@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     )
 
     # ── LLM (Language Model) ──────────────────────────────────
+    llm_provider: Literal["ollama", "openai"] = Field(
+        default="ollama",
+        description="LLM provider: ollama or openai",
+    )
     ollama_model: str = Field(
         default="llama3.2:latest",
         description="Ollama model name",
@@ -37,6 +41,18 @@ class Settings(BaseSettings):
     ollama_host: str = Field(
         default="http://localhost:11434",
         description="Ollama server URL",
+    )
+    openai_api_key: str = Field(
+        default="sk-no-key-needed",
+        description="OpenAI API key (or dummy for local endpoints)",
+    )
+    openai_base_url: str = Field(
+        default="http://localhost:8000/v1",
+        description="OpenAI compatible API base URL",
+    )
+    openai_model: str = Field(
+        default="gpt-3.5-turbo",
+        description="OpenAI model name",
     )
     llm_temperature: float = Field(
         default=0.3,
@@ -89,7 +105,7 @@ class Settings(BaseSettings):
         description="System prompt for RJ's personality",
     )
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 @lru_cache()

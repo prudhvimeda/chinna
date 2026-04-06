@@ -5,45 +5,45 @@ import { LatencyMetrics } from '@/lib/types';
 
 interface LatencyDashboardProps {
   metrics: LatencyMetrics | null;
-  history: LatencyMetrics[];
+  history?: LatencyMetrics[];
 }
 
-export default function LatencyDashboard({ metrics, history }: LatencyDashboardProps) {
+export default function LatencyDashboard({ metrics }: LatencyDashboardProps) {
   if (!metrics) {
     return (
-      <div className="metrics-panel">
-        <div className="metrics-header">[ METRICS ]</div>
-        <div className="metrics-empty">AWAITING_DATA...</div>
+      <div className="metrics-v2">
+        <div className="sys-status-indicator">
+          <div className="status-dot online" />
+          CALIBRATING_SENSORS...
+        </div>
       </div>
     );
   }
 
-  const components = [
-    { label: 'ASR_MS', value: metrics.asr_ms },
-    { label: 'LLM_TTFT', value: metrics.llm_ttft_ms },
-    { label: 'LLM_TOT', value: metrics.llm_total_ms },
-    { label: 'TTS_TTFB', value: metrics.tts_ttfb_ms },
-    { label: 'SYS_OVERHEAD', value: metrics.overhead_ms },
+  const items = [
+    { label: 'ASR', value: metrics.asr_ms, unit: 'ms' },
+    { label: 'TTFT', value: metrics.llm_ttft_ms, unit: 'ms' },
+    { label: 'LLM', value: metrics.llm_total_ms, unit: 'ms' },
+    { label: 'TTS', value: metrics.tts_ttfb_ms, unit: 'ms' },
   ];
 
   return (
-    <div className="metrics-panel">
-      <div className="metrics-header">[ LATENCY_METRICS ]</div>
-      
-      <div className="metrics-total">
-        <span>TOT_LATENCY:</span>
-        <span className="value">{(metrics.total_ms).toFixed(1)}ms</span>
-      </div>
-
-      <div className="metrics-grid">
-        {components.map(({ label, value }) => (
-          <div key={label} className="metric-row">
-            <span className="metric-label">{label}</span>
-            <span className="metric-value">
-               {value.toFixed(1).padStart(6, '0')}
-            </span>
+    <div className="metrics-v2">
+      {items.map((item) => (
+        <div key={item.label} className="metric-pill">
+          <span className="label">{item.label}</span>
+          <div className="value">
+            {Math.round(item.value)}
+            <span className="unit">{item.unit}</span>
           </div>
-        ))}
+        </div>
+      ))}
+      <div className="e2e-total">
+        <span className="label">E2E_TOTAL</span>
+        <span className="value">
+          {metrics.total_ms.toFixed(1)}
+          <span className="unit" style={{ color: 'var(--color-primary)' }}>ms</span>
+        </span>
       </div>
     </div>
   );
