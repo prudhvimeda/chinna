@@ -3,5 +3,9 @@
   "rootDirectory": "frontend",
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD .",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "regions": ["sfo1"]
 }

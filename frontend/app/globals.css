@@ -213,7 +213,16 @@ body {
 
 .chat-line.user { text-align: right; }
 .chat-line.user .content { color: var(--color-primary); }
-.chat-line.assistant .content { color: #fff; font-weight: 500; font-size: 15px; }
+.chat-line.assistant .msg-content { color: #fff; font-weight: 500; font-size: 15px; }
+
+/* ── MARKDOWN BODY ────────────────────────────────────────── */
+.markdown-body p { margin-bottom: 8px; }
+.markdown-body p:last-child { margin-bottom: 0; }
+.markdown-body strong { color: var(--color-primary); font-weight: 700; }
+.markdown-body em { color: var(--color-accent); font-style: italic; }
+.markdown-body ul, .markdown-body ol { margin-left: 20px; margin-bottom: 12px; }
+.markdown-body li { margin-bottom: 4px; }
+.markdown-body code { font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; }
 
 /* ── METRICS V2 ────────────────────────────────────────────── */
 .metrics-v2 {

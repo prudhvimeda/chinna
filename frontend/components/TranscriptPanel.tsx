@@ -1,6 +1,6 @@
-'use client';
-
 import React, { useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Message } from '@/lib/types';
 
 interface TranscriptPanelProps {
@@ -23,7 +23,7 @@ export default function TranscriptPanel({ messages, currentResponse }: Transcrip
       {messages.length === 0 && !currentResponse && (
         <div className="chat-line assistant">
           <div className="role">System</div>
-          <div className="content" style={{ opacity: 0.5, fontStyle: 'italic' }}>
+          <div className="msg-content" style={{ opacity: 0.5, fontStyle: 'italic' }}>
             Awaiting secure handshake... RJ Subsystem Online.
           </div>
         </div>
@@ -32,7 +32,11 @@ export default function TranscriptPanel({ messages, currentResponse }: Transcrip
       {messages.map((msg) => (
         <div key={msg.id} className={`chat-line ${msg.role}`}>
           <div className="role">{msg.role === 'user' ? 'Local_User' : 'RJ_System'}</div>
-          <div className="content">{msg.content}</div>
+          <div className="msg-content markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {msg.content}
+            </ReactMarkdown>
+          </div>
         </div>
       ))}
 
@@ -40,8 +44,10 @@ export default function TranscriptPanel({ messages, currentResponse }: Transcrip
       {currentResponse && (
         <div className="chat-line assistant">
           <div className="role">RJ_System</div>
-          <div className="content">
-            {currentResponse}
+          <div className="msg-content markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {currentResponse}
+            </ReactMarkdown>
             <span className="block-cursor" style={{ marginLeft: '4px', color: 'var(--color-primary)' }}>█</span>
           </div>
         </div>
